@@ -5,6 +5,9 @@ from telethon.errors import SessionPasswordNeededError
 import asyncio
 import os
 import nest_asyncio
+import json
+import base64
+import requests  # GitHub API için requests modülü
 
 # Asenkron işlemler için nest_asyncio'yu etkinleştir
 nest_asyncio.apply()
@@ -15,6 +18,11 @@ app = Flask(__name__)
 api_id = os.getenv('API_ID')  # Environment variable'dan alınır
 api_hash = os.getenv('API_HASH')  # Environment variable'dan alınır
 session_string = os.getenv('SESSION_STRING')  # StringSession string'i
+
+# GitHub API bilgileri
+GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')  # GitHub token'ı
+REPO_OWNER = os.getenv('REPO_OWNER')  # GitHub kullanıcı adı
+REPO_NAME = os.getenv('REPO_NAME')  # Repo adı
 
 # Telethon client oluşturma
 client = TelegramClient(StringSession(session_string), api_id, api_hash)
@@ -65,7 +73,7 @@ def submit_code():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Mesajları çek ve dosyaya kaydet
+# Mesajları çek, JSON dosyasına kaydet ve GitHub'a yükle
 @app.route('/fetch_messages', methods=['GET'])
 def fetch_messages():
     async def fetch():
@@ -83,12 +91,13 @@ def fetch_messages():
                     'message_text': message.text
                 })
 
-        # Mesajları dosyaya kaydet
-        with open('messages.txt', 'w') as f:
-            for msg in messages:
-                f.write(f"{msg['chat_name']}: {msg['message_text']}\n")
+        # Mesajları JSON formatında kaydet
+        with open('messages.json', 'w', encoding='utf-8') as f:
+            json.dump(messages, f, ensure_ascii=False, indent=4)
 
-        return "Mesajlar dosyaya kaydedildi"
+        # GitHub'a yükle
+        github_response = upload_to_github('messages.json')
+        return f"Mesajlar JSON dosyasına kaydedildi ve GitHub'a yüklendi: {github_response}"
 
     try:
         loop = asyncio.get_event_loop()
@@ -96,6 +105,27 @@ def fetch_messages():
         return jsonify({"message": result})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+# GitHub'a dosya yükleme fonksiyonu
+def upload_to_github(file_path):
+    with open(file_path, 'rb') as file:
+        file_content = base64.b64encode(file.read()).decode('utf-8')
+
+    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{file_path}"
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    data = {
+        "message": "Add messages.json",
+        "content": file_content
+    }
+
+    response = requests.put(url, json=data, headers=headers)
+    if response.status_code == 201:
+        return "Dosya GitHub'a başarıyla yüklendi!"
+    else:
+        return f"Hata: {response.status_code}, {response.json()}"
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000, debug=True)
