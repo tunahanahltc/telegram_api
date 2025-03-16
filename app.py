@@ -15,33 +15,37 @@ session_string = os.getenv('SESSION_STRING')
 # Telethon client oluşturma
 client = TelegramClient(StringSession(session_string), api_id, api_hash)
 
-# Flask uygulaması başlarken Telegram istemcisine bağlan
-async def start_client():
+# Telegram istemcisini başlat
+def start_client():
     if not client.is_connected():
-        await client.connect()
+        asyncio.run(client.connect())
 
-@app.before_first_request
-def init_client():
-    asyncio.create_task(start_client())
+@app.before_request
+def ensure_client_connection():
+    start_client()
 
 @app.route('/', methods=['GET'])
 def home():
     return "Telegram API'ye hoş geldiniz!"
 
 @app.route('/request_code', methods=['POST'])
-async def request_code():
+def request_code():
     phone_number = request.json.get('phone_number')
     if not phone_number:
         return jsonify({"error": "Telefon numarası gereklidir"}), 400
 
-    try:
+    async def send_code():
         await client.send_code_request(phone_number)
-        return jsonify({"message": "Kod gönderildi"})
+        return "Kod gönderildi"
+
+    try:
+        result = asyncio.run(send_code())
+        return jsonify({"message": result})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route('/submit_code', methods=['POST'])
-async def submit_code():
+def submit_code():
     phone_number = request.json.get('phone_number')
     code = request.json.get('code')
     password = request.json.get('password')
@@ -49,23 +53,28 @@ async def submit_code():
     if not phone_number or not code:
         return jsonify({"error": "Telefon numarası ve kod gereklidir"}), 400
 
+    async def sign_in():
+        try:
+            await client.sign_in(phone_number, code)
+            return "Oturum açıldı"
+        except SessionPasswordNeededError:
+            if not password:
+                return "İki adımlı doğrulama şifresi gereklidir"
+            await client.sign_in(password=password)
+            return "Oturum açıldı"
+
     try:
-        await client.sign_in(phone_number, code)
-        return jsonify({"message": "Oturum açıldı"})
-    except SessionPasswordNeededError:
-        if not password:
-            return jsonify({"error": "İki adımlı doğrulama şifresi gereklidir"}), 400
-        await client.sign_in(password=password)
-        return jsonify({"message": "Oturum açıldı"})
+        result = asyncio.run(sign_in())
+        return jsonify({"message": result})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route('/fetch_messages', methods=['GET'])
-async def fetch_messages():
-    if not await client.is_user_authorized():
-        return jsonify({"error": "Oturum açılmamış"}), 401
+def fetch_messages():
+    async def fetch():
+        if not await client.is_user_authorized():
+            return "Oturum açılmamış"
 
-    try:
         dialogs = await client.get_dialogs()
         messages = []
         for dialog in dialogs:
@@ -82,7 +91,11 @@ async def fetch_messages():
             for msg in messages:
                 f.write(f"{msg['chat_name']}: {msg['message_text']}\n")
 
-        return jsonify({"message": "Mesajlar dosyaya kaydedildi"})
+        return "Mesajlar dosyaya kaydedildi"
+
+    try:
+        result = asyncio.run(fetch())
+        return jsonify({"message": result})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
