@@ -8,21 +8,22 @@ import os
 app = Flask(__name__)
 
 # Telegram API bilgileri
-api_id = os.getenv('API_ID')
-api_hash = os.getenv('API_HASH')
-session_string = os.getenv('SESSION_STRING')
+api_id = int(os.getenv('API_ID', '0'))  # API ID tam sayı olmalı
+api_hash = os.getenv('API_HASH', '')
+session_string = os.getenv('SESSION_STRING', '')
 
 # Telethon client oluşturma
 client = TelegramClient(StringSession(session_string), api_id, api_hash)
 
-# Telegram istemcisini başlat
-def start_client():
+# Telegram istemcisine bağlan
+async def start_client():
     if not client.is_connected():
-        asyncio.run(client.connect())
+        await client.connect()
 
 @app.before_request
-def ensure_client_connection():
-    start_client()
+def before_request():
+    """Flask, async fonksiyonları desteklemediği için client bağlantısını normal fonksiyon içinde başlatıyoruz."""
+    asyncio.run(start_client())
 
 @app.route('/', methods=['GET'])
 def home():
@@ -54,14 +55,14 @@ def submit_code():
         return jsonify({"error": "Telefon numarası ve kod gereklidir"}), 400
 
     async def sign_in():
+        await client.connect()
         try:
             await client.sign_in(phone_number, code)
-            return "Oturum açıldı"
         except SessionPasswordNeededError:
             if not password:
                 return "İki adımlı doğrulama şifresi gereklidir"
             await client.sign_in(password=password)
-            return "Oturum açıldı"
+        return "Oturum açıldı"
 
     try:
         result = asyncio.run(sign_in())
