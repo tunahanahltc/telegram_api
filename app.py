@@ -7,8 +7,8 @@ import os
 app = Flask(__name__)
 
 # Telegram API bilgileri
-api_id = os.getenv('9144604')  # Environment variable'dan alınır
-api_hash = os.getenv('8645242a0dffb9e10489ce2402f1790e')  # Environment variable'dan alınır
+api_id = os.getenv('API_ID')  # Environment variable'dan alınır
+api_hash = os.getenv('API_HASH')  # Environment variable'dan alınır
 client = TelegramClient('mysession', api_id, api_hash)
 
 # Kullanıcıdan telefon numarası al ve kod iste
