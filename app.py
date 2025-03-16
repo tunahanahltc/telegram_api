@@ -4,6 +4,10 @@ from telethon.sessions import StringSession
 from telethon.errors import SessionPasswordNeededError
 import asyncio
 import os
+import nest_asyncio
+
+# Asenkron işlemler için nest_asyncio'yu etkinleştir
+nest_asyncio.apply()
 
 app = Flask(__name__)
 
@@ -28,7 +32,8 @@ def request_code():
         return "Kod gönderildi"
 
     try:
-        result = asyncio.run(send_code())
+        loop = asyncio.get_event_loop()
+        result = loop.run_until_complete(send_code())
         return jsonify({"message": result})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -54,7 +59,8 @@ def submit_code():
         return "Oturum açıldı"
 
     try:
-        result = asyncio.run(sign_in())
+        loop = asyncio.get_event_loop()
+        result = loop.run_until_complete(sign_in())
         return jsonify({"message": result})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -85,10 +91,11 @@ def fetch_messages():
         return "Mesajlar dosyaya kaydedildi"
 
     try:
-        result = asyncio.run(fetch())
+        loop = asyncio.get_event_loop()
+        result = loop.run_until_complete(fetch())
         return jsonify({"message": result})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=10000, debug=True)
