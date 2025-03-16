@@ -15,6 +15,11 @@ session_string = os.getenv('SESSION_STRING')  # StringSession string'i
 # Telethon client oluşturma
 client = TelegramClient(StringSession(session_string), api_id, api_hash)
 
+# Kök dizin endpoint'i
+@app.route('/', methods=['GET'])
+def home():
+    return "Telegram API'ye hoş geldiniz!"
+
 # Kullanıcıdan telefon numarası al ve kod iste
 @app.route('/request_code', methods=['POST'])
 def request_code():
