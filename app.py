@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from telethon import TelegramClient
+from telethon.sessions import StringSession
 from telethon.errors import SessionPasswordNeededError
 import asyncio
 import os
@@ -9,7 +10,10 @@ app = Flask(__name__)
 # Telegram API bilgileri
 api_id = os.getenv('API_ID')  # Environment variable'dan alınır
 api_hash = os.getenv('API_HASH')  # Environment variable'dan alınır
-client = TelegramClient('mysession', api_id, api_hash)
+session_string = os.getenv('SESSION_STRING')  # StringSession string'i
+
+# Telethon client oluşturma
+client = TelegramClient(StringSession(session_string), api_id, api_hash)
 
 # Kullanıcıdan telefon numarası al ve kod iste
 @app.route('/request_code', methods=['POST'])
