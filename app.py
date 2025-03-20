@@ -7,7 +7,7 @@ import os
 import nest_asyncio
 import json
 import base64
-import requests  # GitHub API için requests modülü
+import requests
 
 # Asenkron işlemler için nest_asyncio'yu etkinleştir
 nest_asyncio.apply()
@@ -26,6 +26,13 @@ REPO_NAME = os.getenv('REPO_NAME')  # Repo adı
 
 # Telethon client oluşturma
 client = TelegramClient(StringSession(session_string), api_id, api_hash)
+
+# Oturumu başlatma fonksiyonu
+async def start_session():
+    if not client.is_connected():
+        await client.connect()
+    if not await client.is_user_authorized():
+        raise Exception("Oturum açılmamış")
 
 # Kullanıcıdan telefon numarası al ve kod iste
 @app.route('/request_code', methods=['POST'])
@@ -73,13 +80,32 @@ def submit_code():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# Mesaj gönderme endpoint'i
+@app.route('/send_message', methods=['POST'])
+def send_message():
+    receiver = request.json.get('receiver')
+    message_text = request.json.get('message')
+
+    if not receiver or not message_text:
+        return jsonify({"error": "Alıcı ve mesaj metni gereklidir"}), 400
+
+    async def send():
+        await start_session()
+        await client.send_message(receiver, message_text)
+        return "Mesaj gönderildi"
+
+    try:
+        loop = asyncio.get_event_loop()
+        result = loop.run_until_complete(send())
+        return jsonify({"message": result})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # Mesajları çek, JSON dosyasına kaydet ve GitHub'a yükle
 @app.route('/fetch_messages', methods=['GET'])
 def fetch_messages():
     async def fetch():
-        if not await client.is_user_authorized():
-            return "Oturum açılmamış"
-
+        await start_session()
         dialogs = await client.get_dialogs()
         messages = []
         for dialog in dialogs:
