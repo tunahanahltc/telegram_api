@@ -34,6 +34,23 @@ async def start_session():
     if not await client.is_user_authorized():
         raise Exception("Oturum açılmamış")
 
+# Oturum durumunu kontrol eden endpoint
+@app.route('/check_session', methods=['GET'])
+def check_session():
+    async def check():
+        try:
+            await start_session()
+            return "Oturum açık"
+        except Exception as e:
+            return str(e)
+
+    try:
+        loop = asyncio.get_event_loop()
+        result = loop.run_until_complete(check())
+        return jsonify({"message": result})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # Kullanıcıdan telefon numarası al ve kod iste
 @app.route('/request_code', methods=['POST'])
 def request_code():
